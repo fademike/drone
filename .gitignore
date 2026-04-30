@@ -1,0 +1,10 @@
+
+
+*.bin
+*.elf
+*.o
+out/
+build/
+code/build/
+.vscode/
+.mxproject
