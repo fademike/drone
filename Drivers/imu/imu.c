@@ -106,7 +106,7 @@ int imu_init(void){
 	return status;
 }
 
-
+/*
 void UpdateOrientation(int * dat_r, float * dat_a_sig, float * dat_g_sig){
 	
 	static float orientation = 0;
@@ -149,6 +149,46 @@ void UpdateOrientation(int * dat_r, float * dat_a_sig, float * dat_g_sig){
 		}
 	}
 }
+*/
+
+// Предопределенные комбинации осей
+static const int axis_permutations[6][3] = {
+    {AXIS_X, AXIS_Y, AXIS_Z},  // 0: XYZ
+    {AXIS_X, AXIS_Z, AXIS_Y},  // 1: XZY
+    {AXIS_Y, AXIS_X, AXIS_Z},  // 2: YXZ
+    {AXIS_Y, AXIS_Z, AXIS_X},  // 3: YZX
+    {AXIS_Z, AXIS_X, AXIS_Y},  // 4: ZXY
+    {AXIS_Z, AXIS_Y, AXIS_X}   // 5: ZYX
+};
+
+void UpdateOrientation(int *dat_r, float *dat_a_sig, float *dat_g_sig) {
+    static float orientation = 0;
+    float param_orientation = params_GetParamValue(PARAM_ORIENTATION);
+    
+    if (orientation == param_orientation) return;
+    orientation = param_orientation;
+    
+    if (orientation < 0 || orientation > 0xFFFF) return;
+    
+    int config = (int)orientation;
+    
+    // 2 бита - первая ось, 1 бит - порядок оставшихся
+    int first_axis = config & 0x3;
+    int swap_remaining = (config >> 2) & 0x1;
+    
+    // Выбираем перестановку
+    int perm_index = first_axis * 2 + swap_remaining;
+    dat_r[0] = axis_permutations[perm_index][0];
+    dat_r[1] = axis_permutations[perm_index][1];
+    dat_r[2] = axis_permutations[perm_index][2];
+    
+    // Знаки (прозрачно)
+    for (int i = 0; i < 3; i++) {
+        dat_a_sig[i] = ((config >> (4 + i)) & 1) ? -1.0f : 1.0f;
+        dat_g_sig[i] = ((config >> (8 + i)) & 1) ? -1.0f : 1.0f;
+    }
+}
+
 
 void imu_loop(void){
 	static uint64_t l_time_us = 0;
@@ -232,7 +272,7 @@ void imu_loop(void){
 
 	MotorControl_loop();
 }
-
+/*
 #define LIMIT 3000
 #define DEF_UPDATE_MIN(a, b) {if (a.x>b.x) a.x = b.x; if (a.y>b.y) a.y = b.y; if (a.z>b.z) a.z = b.z;}
 #define DEF_UPDATE_MAX(a, b) {if (a.x<b.x) a.x = b.x; if (a.y<b.y) a.y = b.y; if (a.z<b.z) a.z = b.z;}
@@ -286,8 +326,86 @@ void imu_autoCalibrateByNoize(int stop){
 		l_time = time;
 	}
 }
+*/
+// gyro_calibration.h
+typedef struct {
+    vec3_t bias;
+    vec3_t noise_level;
+    uint32_t samples_used;
+    float temperature_celsius;
+} gyro_calibration_result_t;
 
+typedef void (*calibration_callback_t)(const gyro_calibration_result_t* result);
 
+void gyro_calibration_init(calibration_callback_t on_complete);
+void gyro_calibration_update(bool force_reset);
+bool gyro_calibration_is_completed(void);
+
+// gyro_calibration.c
+static gyro_calibration_result_t result = {0};
+static calibration_callback_t callback = NULL;
+
+void gyro_calibration_update(bool force_reset) {
+    static struct {
+        vec3_t sum;
+        vec3_t min;
+        vec3_t max;
+        uint32_t count;
+        uint32_t start_time;
+        bool has_movement;
+    } session = {0};
+    
+    if (force_reset) {
+        memset(&session, 0, sizeof(session));
+        result.samples_used = 0;
+        return;
+    }
+    
+    if (session.start_time == 0) {
+        session.start_time = system_getTime_ms();
+        session.min = vec3_fill(FLT_MAX);
+        session.max = vec3_fill(-FLT_MAX);
+        CALIB_LOG(LOG_INFO, "Calibration session started");
+    }
+    
+    uint32_t elapsed = system_getTime_ms() - session.start_time;
+    
+    if (elapsed < CALIB_DURATION_MS) {
+        if (!imu_is_static()) {
+            session.has_movement = true;
+            CALIB_LOG(LOG_WARNING, "Movement detected, resetting session");
+            memset(&session, 0, sizeof(session));
+            return;
+        }
+        
+        session.sum = vec3_add(session.sum, gyro);
+        session.min = vec3_min(session.min, gyro);
+        session.max = vec3_max(session.max, gyro);
+        session.count++;
+        
+        // Прогресс-бар
+        if (elapsed % 500 == 0) {
+            CALIB_LOG(LOG_INFO, "Collecting: %u%% complete", elapsed * 100 / CALIB_DURATION_MS);
+        }
+    } 
+    else if (result.samples_used == 0) { // Finalize once
+        result.samples_used = session.count;
+        result.bias = vec3_div_const(session.sum, session.count);
+        result.noise_level = vec3_sub(session.max, session.min);
+        
+        bool success = (session.count >= MIN_SAMPLES && !session.has_movement);
+        
+        if (success && callback) {
+            CALIB_LOG(LOG_INFO, "Calibration successful: bias=(%.2f,%.2f,%.2f)", 
+                      result.bias.x, result.bias.y, result.bias.z);
+            callback(&result);
+        } else {
+            CALIB_LOG(LOG_ERROR, "Calibration failed: samples=%u, movement=%d", 
+                      session.count, session.has_movement);
+        }
+    }
+}
+/*
 void imu_accCalibrate(void){
 	static uint32_t l_time = 0;
 	static int start = 1;
@@ -339,8 +457,188 @@ void imu_accCalibrate(void){
 		cnt=0;
 	}
 }
+*/
 
 
+// acc_calib.h - Плотный интерфейс
+typedef struct { float x,y,z; } v3;
+typedef enum { ACC_IDLE, ACC_RUN, ACC_DONE, ACC_FAIL } acc_stat;
+
+void acc_calib_start(void);
+void acc_calib_update(void);
+acc_stat acc_calib_status(void);
+v3 acc_calib_offset(void);
+
+// acc_calib.c
+static struct {
+    struct { uint32_t t; uint16_t cnt; v3 sum; } s;
+    acc_stat status;
+    v3 off;
+} acc = {.status = ACC_IDLE};
+
+static inline v3 v3_add(v3 a, v3 b) { return (v3){a.x+b.x, a.y+b.y, a.z+b.z}; }
+static inline v3 v3_div(v3 v, float d) { return (v3){v.x/d, v.y/d, v.z/d}; }
+static inline v3 v3_sub(v3 a, v3 b) { return (v3){a.x-b.x, a.y-b.y, a.z-b.z}; }
+static inline float v3_abs_max_axis(v3 v) {
+    float ax = fabsf(v.x), ay = fabsf(v.y), az = fabsf(v.z);
+    return (ax > ay && ax > az) ? 0 : (ay > az) ? 1 : 2;
+}
+
+void acc_calib_start(void) {
+    acc.s.t = system_getTime_ms();
+    acc.s.cnt = 0;
+    acc.s.sum = (v3){0};
+    acc.off = (v3){0};
+    acc.status = ACC_RUN;
+}
+
+void acc_calib_update(void) {
+    if (acc.status != ACC_RUN) return;
+    
+    uint32_t dt = system_getTime_ms() - acc.s.t;
+    
+    if (dt < 1000) {
+        acc.s.sum = v3_add(acc.s.sum, acc_raw);
+        acc.s.cnt++;
+        return;
+    }
+    
+    if (!acc.s.cnt) { acc.status = ACC_FAIL; return; }
+    
+    v3 avg = v3_div(acc.s.sum, acc.s.cnt);
+    int axis = v3_abs_max_axis(avg);
+    avg.value[axis] -= (avg.value[axis] < 0) ? -1.0f : 1.0f;
+    
+    acc.off = v3_sub(acc.off, avg);
+    acc.status = ACC_DONE;
+}
+
+acc_stat acc_calib_status(void) { return acc.status; }
+v3 acc_calib_offset(void) { return acc.off; }
+
+/// 2in once
+
+// imu_calib.h - Всё в одном
+#define CALIB_DURATION_MS 2000
+#define STATIC_THRESH 0.2f
+
+typedef struct { v3 sum, min, max; uint32_t cnt, start; bool moving; } calib_ctx;
+
+static inline void calib_reset(calib_ctx *c) {
+    *c = (calib_ctx){.min = {LIMIT,LIMIT,LIMIT}, .max = {-LIMIT,-LIMIT,-LIMIT}};
+    c->start = system_getTime_ms();
+}
+
+static inline void calib_update_minmax(calib_ctx *c, v3 val) {
+    if (val.x < c->min.x) c->min.x = val.x; if (val.x > c->max.x) c->max.x = val.x;
+    if (val.y < c->min.y) c->min.y = val.y; if (val.y > c->max.y) c->max.y = val.y;
+    if (val.z < c->min.z) c->min.z = val.z; if (val.z > c->max.z) c->max.z = val.z;
+}
+
+static inline bool is_static(v3 g) {
+    return fabsf(g.x) < STATIC_THRESH && fabsf(g.y) < STATIC_THRESH && fabsf(g.z) < STATIC_THRESH;
+}
+
+// Гироскоп
+static calib_ctx gyro_ctx;
+static v3 gyro_bias;
+
+void gyro_calib_update(bool reset) {
+    if (reset) { calib_reset(&gyro_ctx); return; }
+    
+    if (!gyro_ctx.start) { calib_reset(&gyro_ctx); return; }
+    
+    uint32_t dt = system_getTime_ms() - gyro_ctx.start;
+    
+    if (dt < CALIB_DURATION_MS) {
+        if (!is_static(gyro_raw)) { calib_reset(&gyro_ctx); return; }
+        gyro_ctx.sum = v3_add(gyro_ctx.sum, gyro_raw);
+        calib_update_minmax(&gyro_ctx, gyro_raw);
+        gyro_ctx.cnt++;
+    } 
+    else if (gyro_ctx.cnt >= 10 && !gyro_ctx.moving) {
+        gyro_bias = v3_div(gyro_ctx.sum, gyro_ctx.cnt);
+    }
+}
+
+// Акселерометр
+static calib_ctx acc_ctx;
+static v3 acc_bias;
+
+void acc_calib_update(void) {
+    if (!acc_ctx.start) { calib_reset(&acc_ctx); return; }
+    
+    uint32_t dt = system_getTime_ms() - acc_ctx.start;
+    
+    if (dt < 1000) {
+        acc_ctx.sum = v3_add(acc_ctx.sum, acc_raw);
+        acc_ctx.cnt++;
+    } 
+    else if (acc_ctx.cnt) {
+        v3 avg = v3_div(acc_ctx.sum, acc_ctx.cnt);
+        int axis = (fabsf(avg.x) > fabsf(avg.y) && fabsf(avg.x) > fabsf(avg.z)) ? 0 :
+                   (fabsf(avg.y) > fabsf(avg.z)) ? 1 : 2;
+        avg.value[axis] -= (avg.value[axis] < 0) ? -1.0f : 1.0f;
+        acc_bias = v3_sub(acc_bias, avg);
+        acc_ctx.start = 0; // завершено
+    }
+}
+
+
+/// 2in 1 v2
+
+// imu_calib_compact.h - Плотно, но читаемо
+typedef struct { float x,y,z; } vec;
+
+static inline vec vec_add(vec a, vec b) { return (vec){a.x+b.x, a.y+b.y, a.z+b.z}; }
+static inline vec vec_sub(vec a, vec b) { return (vec){a.x-b.x, a.y-b.y, a.z-b.z}; }
+static inline vec vec_div(vec v, float d) { return (vec){v.x/d, v.y/d, v.z/d}; }
+static inline vec vec_fill(float v) { return (vec){v,v,v}; }
+
+typedef struct {
+    vec sum, min, max;
+    uint32_t cnt, start;
+    bool moving;
+} calib_t;
+
+static calib_t gyro = {.min = vec_fill(3000), .max = vec_fill(-3000)};
+static calib_t acc = {0};
+static vec gyro_bias = {0}, acc_bias = {0};
+
+void calib_gyro_update(bool force) {
+    if (force) { gyro = (calib_t){.min=vec_fill(3000), .max=vec_fill(-3000), .start=system_getTime_ms()}; return; }
+    if (!gyro.start) return;
+    
+    uint32_t dt = system_getTime_ms() - gyro.start;
+    bool static_ok = fabsf(gyro_raw.x) < 0.2f && fabsf(gyro_raw.y) < 0.2f && fabsf(gyro_raw.z) < 0.2f;
+    
+    if (dt < 2000 && static_ok) {
+        gyro.sum = vec_add(gyro.sum, gyro_raw);
+        gyro.cnt++;
+    } else if (gyro.cnt > 10 && !gyro.moving) {
+        gyro_bias = vec_div(gyro.sum, gyro.cnt);
+        gyro.start = 0;
+    }
+}
+
+void calib_acc_update(void) {
+    if (!acc.start) { acc = (calib_t){.start=system_getTime_ms()}; return; }
+    
+    if (system_getTime_ms() - acc.start < 1000) {
+        acc.sum = vec_add(acc.sum, acc_raw);
+        acc.cnt++;
+    } else if (acc.cnt) {
+        vec avg = vec_div(acc.sum, acc.cnt);
+        int axis = (fabsf(avg.x) > fabsf(avg.y) && fabsf(avg.x) > fabsf(avg.z)) ? 0 :
+                   (fabsf(avg.y) > fabsf(avg.z)) ? 1 : 2;
+        avg.value[axis] -= (avg.value[axis] < 0) ? -1.0f : 1.0f;
+        acc_bias = vec_sub(acc_bias, avg);
+        acc.start = 0;
+    }
+}
+
+
+/*
 vector vector_setConst(vector axes, float Value){
 	for (int i=0;i<AXES_ALL;i++) axes.value[i]=Value;
 	return axes;
@@ -378,3 +676,108 @@ vector vector_rearranging(vector axes, int * val){
 	for (int i=0;i<AXES_ALL;i++) if (val[i]<AXES_ALL)res.value[val[i]] = axes.value[i];
 	return res;
 }
+*/
+
+#include "vector_math.h"
+
+#ifndef VECTOR_MATH_H
+#define VECTOR_MATH_H
+
+#include <math.h>   // только если нужны sqrtf, sinf, cosf
+#include <string.h> // для memcpy при необходимости
+
+// Константы осей
+#define AXIS_X 0
+#define AXIS_Y 1
+#define AXIS_Z 2
+#define AXES_ALL 3
+
+// Тип данных: 3-мерный вектор (12 байт, выровнен)
+// Аналог вашей структуры 'vector', но с явными полями [citation:9]
+typedef struct {
+    float x;
+    float y;
+    float z;
+} vec3_t;
+
+// Инициализация и константы
+static inline vec3_t vec3_create(float x, float y, float z) {
+    vec3_t v = {x, y, z};
+    return v;
+}
+
+static inline vec3_t vec3_zero(void) {
+    return (vec3_t){0.0f, 0.0f, 0.0f};
+}
+
+// === Базовые операции (замена ваших функций) ===
+
+// vec3 = vec3 + scalar
+static inline vec3_t vec3_add_const(vec3_t v, float scalar) {
+    return (vec3_t){v.x + scalar, v.y + scalar, v.z + scalar};
+}
+
+// vec3 = vec3 * scalar (ваш vector_muxConst)
+static inline vec3_t vec3_mul_const(vec3_t v, float scalar) {
+    return (vec3_t){v.x * scalar, v.y * scalar, v.z * scalar};
+}
+
+// vec3 = vec3 / scalar (ваш vector_divConst) 
+static inline vec3_t vec3_div_const(vec3_t v, float scalar) {
+    // Защита от деления на ноль
+    if (scalar == 0.0f) return v;
+    float inv = 1.0f / scalar; // одно деление вместо трех
+    return (vec3_t){v.x * inv, v.y * inv, v.z * inv};
+}
+
+// Поэлементное сложение векторов
+static inline vec3_t vec3_add(vec3_t a, vec3_t b) {
+    return (vec3_t){a.x + b.x, a.y + b.y, a.z + b.z};
+}
+
+// Поэлементное вычитание (ваш vector_removeVector)
+static inline vec3_t vec3_sub(vec3_t a, vec3_t b) {
+    return (vec3_t){a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
+// Поэлементное умножение (ваш vector_muxVector, Hadamard product)
+static inline vec3_t vec3_mul(vec3_t a, vec3_t b) {
+    return (vec3_t){a.x * b.x, a.y * b.y, a.z * b.z};
+}
+
+// === Полезные операции ===
+
+// Скалярное произведение
+static inline float vec3_dot(vec3_t a, vec3_t b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+// Длина вектора
+static inline float vec3_length(vec3_t v) {
+    return sqrtf(vec3_dot(v, v));
+}
+
+// Нормализация
+static inline vec3_t vec3_normalize(vec3_t v) {
+    float len = vec3_length(v);
+    if (len == 0.0f) return vec3_zero();
+    return vec3_div_const(v, len);
+}
+
+// === Перестановка осей (аналог вашего vector_rearranging) ===
+// permutation[0..2] содержит новые индексы для x,y,z соответственно
+static inline vec3_t vec3_rearrange(vec3_t v, const int permutation[3]) {
+    float data[3] = {v.x, v.y, v.z};
+    return (vec3_t){
+        data[permutation[0]],
+        data[permutation[1]], 
+        data[permutation[2]]
+    };
+}
+
+// Установка всех компонент в одно значение
+static inline vec3_t vec3_fill(float value) {
+    return (vec3_t){value, value, value};
+}
+
+#endif // VECTOR_MATH_H
