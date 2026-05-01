@@ -20,6 +20,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+#include "tty.h"
 static int tty =0;
 
 // for circular buffer

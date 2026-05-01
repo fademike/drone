@@ -33,7 +33,7 @@ int Battery_getVoltage(void);
 int Battery_getBatPercent(void);
 void Battery_Read(void);
 
-#ifdef CMAKE_CROSSCOMPILING
+#ifndef CMAKE_CROSSCOMPILING
 uint32_t HAL_GetTick(void);
 #endif //CMAKE_CROSSCOMPILING
 #endif

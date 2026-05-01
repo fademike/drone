@@ -28,6 +28,7 @@
 #include "tty.h"
 #define MAIN_DEBUG 1
 
+#include <stdlib.h>
 
 char * portname = "/tmp/ttyV0"; //"/dev/ttyUSB0";
 
@@ -71,7 +72,7 @@ int cmdOptionGet(int argc, char *argv[], const char * option, char ** val)
 
 int main(int argc, char* argv[]){
     printf("started...\n\r");
-
+//return 0;
 	// char * program_name;		// file name for program
 
 	if (cmdOptionExists(argc, argv, "--help") || cmdOptionExists(argc, argv, "-h")) {
@@ -103,9 +104,10 @@ int main(int argc, char* argv[]){
 	// 	printf("cb init cb_ttyRead error\n\r");
 	// 	return 0;
 	// }
+#if 0
 	// tty init
 	if (tty_init(portname) < 0){printf("error tty %s\n\r", portname); return -1;}
-
+#endif
 
 
 

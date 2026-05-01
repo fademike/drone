@@ -9,9 +9,10 @@
 
 #ifdef CMAKE_CROSSCOMPILING
 #include "stm32f1xx.h"
+
 extern TIM_HandleTypeDef htim1;
 #else 
-
+#include "system.h" // get tick
 #include <sys/time.h>
 #include "stdio.h"
 uint32_t HAL_GetTick(void){

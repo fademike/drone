@@ -56,7 +56,7 @@ void mavlink_send_msg(mavlink_message_t * msg){
 		HAL_UART_Transmit(&huart2, (unsigned char *)buf, len, 100);
 		// HAL_UART_Transmit_DMA(&huart2, (unsigned char *)buf, len);
 #else 
-		tty_write(buf, len);
+		//tty_write(buf, len);
 #endif
 		return;
 	}
