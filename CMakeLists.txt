@@ -175,6 +175,50 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
 )
 
+
+
+add_executable( test_calibrate
+
+                ${CMAKE_SOURCE_DIR}/tests/test_gyro_calibrate.c
+                ${CMAKE_SOURCE_DIR}/tests/unity/unity.c
+                ${CMAKE_SOURCE_DIR}/Drivers/imu/vector_math.c
+                ${CMAKE_SOURCE_DIR}/Drivers/imu/gyro_calibration.c
+                ${CMAKE_SOURCE_DIR}/Core//App/system.c
+                ${CMAKE_SOURCE_DIR}/tests/host/log.c
+                # ${CMAKE_SOURCE_DIR}/tests/host/tty.c
+              )
+
+
+# Add include paths
+target_include_directories(test_calibrate PRIVATE
+    # Add user defined include paths
+    ${CMAKE_SOURCE_DIR}/Drivers/imu
+    ${CMAKE_SOURCE_DIR}/tests/unity
+    ${CMAKE_SOURCE_DIR}/tests
+    ${CMAKE_SOURCE_DIR}/tests/host
+    ${CMAKE_SOURCE_DIR}/Core/App
+)
+
+# Add project symbols (macros)
+target_compile_definitions(test_calibrate PRIVATE
+    # Add user defined symbols
+    UNIT_TEST
+    TEST
+)
+
+
+
+# // # Пример Makefile для тестов
+# // test: test_gyro_calibration
+# // 	./test_gyro_calibration --verbose
+
+# // test_gyro_calibration: test_gyro_calibration.c gyro_calibration.c
+# // 	gcc -DUNIT_TEST -DTEST -Wall -o $@ $^ -lm
+# // 	./$@
+	
+
+
+
 # set(CMAKE_REQUIRED_LIBRARIES m)
 
 # add_compile_options(
