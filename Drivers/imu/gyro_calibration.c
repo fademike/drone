@@ -1,11 +1,12 @@
 
 
 #include <stdint.h>
+#include <float.h>
 #include "vector_math.h"
 #include "system.h"
 #include "gyro_calibration.h"
 
-#define FLT_MAX 1000
+//#define FLT_MAX 1000
 #define LOG_ERROR 1
 #define LOG_INFO 1
 #define LOG_WARNING 1
