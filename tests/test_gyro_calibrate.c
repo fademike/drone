@@ -1,6 +1,7 @@
 
 
 // Используя Unity Test Framework для embedded
+#include <stdlib.h>
 #include "unity.h"
 #include "vector_math.h"
 #include "gyro_calibration.h"
