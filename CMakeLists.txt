@@ -175,38 +175,82 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
 )
 
-
-
-add_executable( test_calibrate
-
-                ${CMAKE_SOURCE_DIR}/tests/test_gyro_calibrate.c
+set(TEST_SRC 
                 ${CMAKE_SOURCE_DIR}/tests/unity/unity.c
                 ${CMAKE_SOURCE_DIR}/Drivers/imu/vector_math.c
-                ${CMAKE_SOURCE_DIR}/Drivers/imu/gyro_calibration.c
                 ${CMAKE_SOURCE_DIR}/Core//App/system.c
-                ${CMAKE_SOURCE_DIR}/tests/host/log.c
-                # ${CMAKE_SOURCE_DIR}/tests/host/tty.c
-              )
+                ${CMAKE_SOURCE_DIR}/tests/host/log.c)
 
-
-# Add include paths
-target_include_directories(test_calibrate PRIVATE
-    # Add user defined include paths
+set(TEST_INC
     ${CMAKE_SOURCE_DIR}/Drivers/imu
     ${CMAKE_SOURCE_DIR}/tests/unity
     ${CMAKE_SOURCE_DIR}/tests
     ${CMAKE_SOURCE_DIR}/tests/host
-    ${CMAKE_SOURCE_DIR}/Core/App
+    ${CMAKE_SOURCE_DIR}/Core/App) 
+
+add_executable( test_gyro_calibrate
+
+                ${CMAKE_SOURCE_DIR}/tests/test_gyro_calibrate.c
+                ${CMAKE_SOURCE_DIR}/Drivers/imu/gyro_calibration.c
+                ${TEST_SRC}
+              )
+
+
+
+# Add include paths
+target_include_directories(test_gyro_calibrate PRIVATE
+    # Add user defined include paths
+    ${TEST_INC}
 )
 
 # Add project symbols (macros)
-target_compile_definitions(test_calibrate PRIVATE
+target_compile_definitions(test_gyro_calibrate PRIVATE
     # Add user defined symbols
     UNIT_TEST
     TEST
 )
 
+add_executable( test_acc_calibrate
 
+                ${CMAKE_SOURCE_DIR}/tests/test_acc_calibrate.c
+                ${CMAKE_SOURCE_DIR}/Drivers/imu/acc_calibration.c
+                ${TEST_SRC}
+              )
+
+
+# Add include paths
+target_include_directories(test_acc_calibrate PRIVATE
+    # Add user defined include paths
+    ${TEST_INC}
+)
+
+# Add project symbols (macros)
+target_compile_definitions(test_acc_calibrate PRIVATE
+    # Add user defined symbols
+    UNIT_TEST
+    TEST
+)
+
+add_executable( test_rearrange
+
+                ${CMAKE_SOURCE_DIR}/tests/test_rearrange.c
+                ${CMAKE_SOURCE_DIR}/Drivers/imu/imu_rearrange.c
+                ${TEST_SRC}
+              )
+
+
+# Add include paths
+target_include_directories(test_rearrange PRIVATE
+    # Add user defined include paths
+    ${TEST_INC}
+)
+
+# Add project symbols (macros)
+target_compile_definitions(test_rearrange PRIVATE
+    # Add user defined symbols
+    UNIT_TEST
+    TEST
+)
 
 # // # Пример Makefile для тестов
 # // test: test_gyro_calibration
