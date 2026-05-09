@@ -23,6 +23,7 @@ extern UART_HandleTypeDef huart2;
 #else 
 #include <math.h>
 #include "tty.h"
+#include "network.h"
 #endif
 
 uint8_t target_system;
@@ -51,15 +52,18 @@ void mavlink_send_msg(mavlink_message_t * msg){
 
 	if (MAV_DEBUG) Printf("send mav msg: %d, len: %d\n\r", msg->msgid, len);
 
-	if (ModemControl_getStatus() < 0) {
 #ifdef CMAKE_CROSSCOMPILING
+	if (ModemControl_getStatus() < 0) {
 		HAL_UART_Transmit(&huart2, (unsigned char *)buf, len, 100);
 		// HAL_UART_Transmit_DMA(&huart2, (unsigned char *)buf, len);
-#else 
-		//tty_write(buf, len);
-#endif
+
 		return;
 	}
+#else 
+		//tty_write(buf, len);
+		network_send(buf, len);
+		return;
+#endif
 
 	if (len<PACKET_DATALEN) ModemControl_SendPacket(buf, len);
 	else
@@ -370,18 +374,19 @@ void mavlink_receive(char rxdata){
 						}
 						break;
 					case MAV_CMD_REQUEST_MESSAGE:
+						mavlink_send_cmd_ack(cmd, MAV_RESULT_ACCEPTED, 100);
 {						
 							printf("MAV_CMD_REQUEST_MESSAGE: ");
 							t_param[1] = mavlink_msg_command_long_get_param1(&msg);
-							t_param[2] = mavlink_msg_command_long_get_param2(&msg);
-							t_param[3] = mavlink_msg_command_long_get_param3(&msg);
-							t_param[4] = mavlink_msg_command_long_get_param4(&msg);
-							t_param[5] = mavlink_msg_command_long_get_param5(&msg);
+							// t_param[2] = mavlink_msg_command_long_get_param2(&msg);
+							// t_param[3] = mavlink_msg_command_long_get_param3(&msg);
+							// t_param[4] = mavlink_msg_command_long_get_param4(&msg);
+							// t_param[5] = mavlink_msg_command_long_get_param5(&msg);
 							printf("%d,", (int)(t_param[1]*1.0f));
-							printf("%d,", (int)(t_param[2]*1.0f));
-							printf("%d,", (int)(t_param[3]*1.0f));
-							printf("%d,", (int)(t_param[4]*1.0f));
-							printf("%d,", (int)(t_param[5]*1.0f));
+							// printf("%d,", (int)(t_param[2]*1.0f));
+							// printf("%d,", (int)(t_param[3]*1.0f));
+							// printf("%d,", (int)(t_param[4]*1.0f));
+							// printf("%d,", (int)(t_param[5]*1.0f));
 							printf("\n\r");
 							mavlink_message_t msg;
 							mavlink_msg_param_ext_value_pack(1, MAV_COMP_ID_AUTOPILOT1, &msg, "","",MAVLINK_TYPE_UINT8_T, -1, -1);

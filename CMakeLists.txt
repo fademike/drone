@@ -138,6 +138,7 @@ add_executable( ${CMAKE_PROJECT_NAME}
                 ${CMAKE_SOURCE_DIR}/tests/host/log.c
                 ${CMAKE_SOURCE_DIR}/tests/host/tty.c
                 # ${CMAKE_SOURCE_DIR}/tests/host/cb.c
+                ${CMAKE_SOURCE_DIR}/tests/host/network.c
 
 
                 

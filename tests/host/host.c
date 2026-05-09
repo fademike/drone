@@ -30,6 +30,12 @@
 
 #include <stdlib.h>
 
+#include "network.h"
+
+#define USE_NET
+#define BUFFER_LENGTH 2041 // minimum buffer size that can be used with qnx (I don't know why)
+
+
 char * portname = "/tmp/ttyV0"; //"/dev/ttyUSB0";
 
 // unsigned long GetTime_ms(int reset){
@@ -104,10 +110,17 @@ int main(int argc, char* argv[]){
 	// 	printf("cb init cb_ttyRead error\n\r");
 	// 	return 0;
 	// }
-#if 0
+#ifdef USE_TTY
 	// tty init
 	if (tty_init(portname) < 0){printf("error tty %s\n\r", portname); return -1;}
 #endif
+
+#ifdef USE_NET
+	// setting up network
+	if (network_init() < 0) return -1;
+#endif
+	// no buffer for stdout
+	setvbuf(stdout, NULL, _IONBF, 0);	
 
 
 
@@ -152,11 +165,19 @@ int main(int argc, char* argv[]){
                 ModemControl_Loop();
               }
                 //if (ModemControl_Loop() == 1){  // if rx data pack
+#ifdef USE_TTY
                   uint8_t buff_pack[64];
                   int32_t rx_len = 0;//ModemControl_GetPacket(buff_pack); // if exist pack
                   rx_len = tty_read_get(buff_pack, 64);
                   // if (rx_len > 0) MY_DEBUGF(MAIN_DEBUG, ("main: modem data\n\r"));  
                   if (rx_len > 0) mavlink_receive_pack(buff_pack, rx_len);  // send packet to parse
+#endif
+#ifdef USE_NET
+                  uint8_t nbuf[BUFFER_LENGTH];
+                  //	receive data from network
+                  int n = network_receive(nbuf, BUFFER_LENGTH);
+                  if (n > 0) mavlink_receive_pack(nbuf, n);  // send packet to parse
+#endif
                 //}
               break;
             case(THREAD_MAV_SEND_ATTITUDE):

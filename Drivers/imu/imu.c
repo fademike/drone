@@ -163,6 +163,8 @@ void imu_loop(void){
 	short t;
 #ifdef CMAKE_CROSSCOMPILING
 	if (status == 0) if (MPU_GetDataFloat(EstA.value, EstG.value, &t) != HAL_OK ) {imu_init(); return;}
+	EstG = vector_muxConst(EstG, lsb2dps_gyro),
+	EstA = vector_muxConst(EstA, lsb2g_acc);
 #else
 	EstA.axis.z = 1.0f;
 	EstG.angle.yaw = 0.2f;
@@ -172,16 +174,16 @@ void imu_loop(void){
 	if (l_time_us  == 0 ) {l_time_us = c_time_us; return;} //first cycle. when haven't l_time.
 
 	// Preparing gyro data..
-#ifdef CMAKE_CROSSCOMPILING
-	gyro = vector_addVector(vector_muxConst(EstG, lsb2dps_gyro), gyro_offs);
+// #ifdef CMAKE_CROSSCOMPILING
+	gyro = vector_addVector(EstG, gyro_offs);
 	imu_autoCalibrateByNoize(MotorControl_getState() == MOTOR_STATUS_LAUNCHED);	// calibrate gyro, if motor not launched, if necessary
 
 	// Preparing acc data..	 convert "raw" data to "g" data and add offset
-	acc = vector_addVector(vector_muxConst(EstA, lsb2g_acc), acc_offs);
-#else
-	gyro = EstG;
-	acc = EstA;
-#endif
+	acc = vector_addVector(EstA, acc_offs);
+// #else
+// 	gyro = EstG;
+// 	acc = EstA;
+// #endif
 	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) imu_accCalibrate(); 	// calibrate acc, if motor not launched, if necessary
 
 	// TODO heavy while launched motors
@@ -274,6 +276,7 @@ void imu_autoCalibrateByNoize(int stop){
 			
 			// gyro_offs -= average gyro data
 			gyro_offs = vector_removeVector(gyro_offs, vector_divConst(average, (float)cnt));
+			Printf("gcc c: %d, %d, %d\n\r", (int)(gyro_offs.axis.x*1000), (int)(gyro_offs.axis.y*1000), (int)(gyro_offs.axis.z*1000));
 			diff_last = diff_res;
 			statusCalibrateGyro = 0;
 		}
