@@ -162,6 +162,10 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Drivers/modem/cb.c
     ${CMAKE_SOURCE_DIR}/Drivers/modem/si4463.c
 
+
+    ${CMAKE_SOURCE_DIR}/Drivers/imu/vector_math.c
+    ${CMAKE_SOURCE_DIR}/tests/host/imu_data_generate.c
+
 )
 
 # Add include paths

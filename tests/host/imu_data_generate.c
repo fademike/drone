@@ -7,8 +7,9 @@
 #include "imu_data_generate.h"
 
 static vec3_t acc = {0,0,1};
-static vec3_t acc_change = {0,0,1};
-static float acc_change_speed = 0;
+static vec3_t angles = {0,0,0};
+static vec3_t speed_rate = {0,0,0};
+static float angle_change_speed = 0;
 static vec3_t gyro = {0,0,0};
 static float noise_level = 0.1;
 
@@ -24,16 +25,23 @@ void gen_set_noise_lvl(float n){
     noise_level = n;
 }
 
-void change_pos(vec3_t a, float speed){
-    acc_change = a;
-    acc_change_speed = speed;
+void change_pos(vec3_t angle, vec3_t speed){
+    // angles = angle;
+    speed_rate = speed;
 }
 
-vec3_t gen_acc(void){
+vec3_t gen_acc(float dt){
 
-    if (acc_change.x > acc.x) {acc.x += (acc_change.x)*acc_change_speed; gyro.y += (acc_change.x)*acc_change_speed;}
-    else if (acc_change.x < acc.x) {acc.x -= (acc_change.x)*acc_change_speed; gyro.y -= (acc_change.x)*acc_change_speed;}
-    else gyro.y = 0;
+    angles = vec3_add(angles, vec3_mul_const(speed_rate, dt));
+
+    gyro = speed_rate;
+
+    float roll = angles.x*3.14f/180.0f;
+    float pitch = angles.y*3.14f/180.0f;
+
+    acc.x = -sinf(pitch);
+    acc.y = sinf(roll)*cosf(pitch);
+    acc.z = cosf(roll)*cosf(pitch);
 
     vec3_t noise;
     noise.x = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;

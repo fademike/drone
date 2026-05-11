@@ -20,6 +20,12 @@
 
 #define IMU_DEBUG 1
 
+#ifndef CMAKE_CROSSCOMPILING
+#include "vector_math.h"
+#include "imu_data_generate.h"
+#endif
+
+
 void imu_autoCalibrateByNoize(int stop);
 void imu_accCalibrate(void);
 
@@ -161,22 +167,80 @@ void imu_loop(void){
 	
 	vector EstA = {0,0,0}, EstG = {0,0,0};
 	short t;
+
+	
+	uint64_t c_time_us = system_getTime_us();
+	if (l_time_us  == 0 ) {l_time_us = c_time_us; return;} //first cycle. when haven't l_time.
+
+
 #ifdef CMAKE_CROSSCOMPILING
 	if (status == 0) if (MPU_GetDataFloat(EstA.value, EstG.value, &t) != HAL_OK ) {imu_init(); return;}
 	EstG = vector_muxConst(EstG, lsb2dps_gyro),
 	EstA = vector_muxConst(EstA, lsb2g_acc);
 #else
-	EstA.axis.z = 1.0f;
-	EstG.angle.yaw = 0.2f;
-#endif
+	// EstA.axis.z = 1.0f;
+	// EstG.angle.yaw = 0.2f;
 
-	uint64_t c_time_us = system_getTime_us();
-	if (l_time_us  == 0 ) {l_time_us = c_time_us; return;} //first cycle. when haven't l_time.
+	static int gen_cnt = 0;
+
+	
+// void gen_set_acc(vec3_t a);
+// void gen_set_gyro(vec3_t g);
+// void gen_set_noise_lvl(float n);
+// void change_pos(vec3_t angle, vec3_t speed);
+// vec3_t gen_acc(void);
+// vec3_t gen_gyro(void);
+
+	if (gen_cnt == 0){
+		gen_set_acc((vec3_t){0,0,1});
+		gen_set_gyro((vec3_t){0,0,0});
+		gen_set_noise_lvl(0.1f);
+	}
+	static int triger = 0;
+	if (triger == 0){
+		gen_cnt++;
+		if(gen_cnt > 10*500) triger = 1;
+		change_pos((vec3_t){0,0,1}, (vec3_t){1,1,1});
+		vec3_t a = gen_acc((c_time_us - l_time_us)/1000000.0f);
+		vec3_t g = gen_gyro();
+
+		EstA.axis.x = a.x;
+		EstA.axis.y = a.y;
+		EstA.axis.z = a.z;
+
+		EstG.axis.x = g.x;
+		EstG.axis.y = g.y;
+		EstG.axis.z = g.z;
+
+		
+		// printf("imu up: %f, %f, %f; %f, %f, %f\n\r", a.x, a.y, a.z, g.x, g.y, g.z);
+	}
+	else if (triger == 1){
+		gen_cnt--;
+		if(gen_cnt <= 1) triger = 0;
+		change_pos((vec3_t){0,0,1}, (vec3_t){-1,-1,-1});
+		vec3_t a = gen_acc((c_time_us - l_time_us)/1000000.0f);
+		vec3_t g = gen_gyro();
+
+		EstA.axis.x = a.x;
+		EstA.axis.y = a.y;
+		EstA.axis.z = a.z;
+
+		EstG.axis.x = g.x;
+		EstG.axis.y = g.y;
+		EstG.axis.z = g.z;
+		
+		// printf("imu dw: %f, %f, %f; %f, %f, %f\n\r", a.x, a.y, a.z, g.x, g.y, g.z);
+	}
+
+
+	
+#endif
 
 	// Preparing gyro data..
 // #ifdef CMAKE_CROSSCOMPILING
 	gyro = vector_addVector(EstG, gyro_offs);
-	imu_autoCalibrateByNoize(MotorControl_getState() == MOTOR_STATUS_LAUNCHED);	// calibrate gyro, if motor not launched, if necessary
+	// imu_autoCalibrateByNoize(MotorControl_getState() == MOTOR_STATUS_LAUNCHED);	// calibrate gyro, if motor not launched, if necessary
 
 	// Preparing acc data..	 convert "raw" data to "g" data and add offset
 	acc = vector_addVector(EstA, acc_offs);
