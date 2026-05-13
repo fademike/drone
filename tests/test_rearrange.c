@@ -10,12 +10,18 @@
 
 void setUp(void) {
     // Сброс состояния перед каждым тестом
-   
+}
+
+static vec3_t gen_noise(float noise_level){
+  return (vec3_t){(((float)rand() / (float)RAND_MAX) -0.5f )*noise_level,
+        (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level,
+        (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level};
 }
 
 void tearDown(void) {
     // Очистка после теста
 }
+
 void rearrange(void){
   load_rearange(0x01);
     int * rr = rr_get_rr();
@@ -41,7 +47,6 @@ void rearrange(void){
 
 void calc_orientation(vec3_u acc, int * expect, vec3_u e_sig, int a1, int a2){
 
-    // vec3_t acc = (vec3_t){0,0,1};
     vec3_t gyro = (vec3_t){0,0,0};
     float noise_level = 0.1f;
 
@@ -50,40 +55,21 @@ void calc_orientation(vec3_u acc, int * expect, vec3_u e_sig, int a1, int a2){
 
     // static position
     for (int i = 0; i < 1000; i++) {
-        vec3_t noise;
-        // Добавляем шум
-        noise.x = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-        noise.y = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-        noise.z = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-
+        vec3_t noise = gen_noise(noise_level);
         calc_rearrange(vec3_add(acc.axis, noise), vec3_add(gyro, noise), 0);
     }
     // static position
     for (int i = 0; i < 3000; i++) {
-        vec3_t noise;
-        // Добавляем шум
-        noise.x = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-        noise.y = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-        noise.z = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-
+        vec3_t noise = gen_noise(noise_level);
         acc.data[a1]+=0.01f;
-        //acc.axis.z-=0.01f;
-        //vec3_u * au = (vec3_u *)&acc;
-        //au->data[a1]+=0,01f;
-
         calc_rearrange(vec3_add(acc.axis, noise), vec3_add(gyro, noise), 0);
     }
     // static position
     for (int i = 0; i < 3000; i++) {
-        vec3_t noise;
-        // Добавляем шум
-        noise.x = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-        noise.y = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-        noise.z = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
+        vec3_t noise = gen_noise(noise_level);;
 
         acc.data[a2]+=0.01f;
         //acc.axis.x+=0.01f;
-
         calc_rearrange(vec3_add(acc.axis, noise), vec3_add(gyro, noise), 0);
     }
 
@@ -103,9 +89,6 @@ void calc_orientation(vec3_u acc, int * expect, vec3_u e_sig, int a1, int a2){
     TEST_ASSERT_FLOAT_WITHIN(0, e_sig.axis.x, acc_sig.x);
     TEST_ASSERT_FLOAT_WITHIN(0, e_sig.axis.y, acc_sig.y);
     TEST_ASSERT_FLOAT_WITHIN(0, e_sig.axis.y, acc_sig.z);
-
-
-
 
 }
 

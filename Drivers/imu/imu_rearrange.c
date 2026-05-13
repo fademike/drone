@@ -50,7 +50,20 @@ vec3_t rr_gyro_sig(void){
   return gyro_sig.axis;
 }
 
-int get_abs_big_ptr(float *);
+int get_abs_big_ptr(float * d, int cnt){
+  if (cnt<=0) return 0;
+  int index=0;
+  float max= fabsf(d[0]);
+  for (int i=1;i<cnt;i++) {
+    float new =fabsf(d[i]);
+    if(max<new) {max=new; index=i;}
+  }
+  
+  //int axis = ((fabsf(avg_a.axis.x) > fabsf(avg_a.axis.y)) && (fabsf(avg_a.axis.x) > fabsf(avg_a.axis.z))) ? AXIS_X : \
+                   (fabsf(avg_a.axis.y) > fabsf(avg_a.axis.z)) ? AXIS_Y : AXIS_Z;
+  
+  return index;
+}
 
 int crr = 0;
 int crr_state =0;
@@ -86,8 +99,7 @@ int calc_rearrange(vec3_t acc, vec3_t gyro, int stop){
       a_bias.axis = vec3_div_const(sum_a.axis, 100);
       vec3_u avg_a = a_bias;
       g_bias.axis = vec3_div_const(sum_g.axis, 100);
-      int axis = ((fabsf(avg_a.axis.x) > fabsf(avg_a.axis.y)) && (fabsf(avg_a.axis.x) > fabsf(avg_a.axis.z))) ? AXIS_X :
-                   (fabsf(avg_a.axis.y) > fabsf(avg_a.axis.z)) ? AXIS_Y : AXIS_Z;
+      int axis = get_abs_big_ptr(avg_a.data,3);
       rr_axis[AXIS_Z] =axis;
       acc_sig.data[AXIS_Z] = (avg_a.data[axis] < 0) ? -1.0f : 1.0f;
       gyro_sig.data[AXIS_Y] = (avg_a.data[axis] < 0) ? 1.0f : -1.0f;

@@ -11,6 +11,10 @@
 
 #include "network.h"
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 
 #define BUFFER_LENGTH 2041 // minimum buffer size that can be used with qnx (I don't know why)
 
@@ -19,10 +23,11 @@ struct sockaddr_in gcAddr;
 struct sockaddr_in locAddr;
 
 socklen_t fromlen;
+char target_ip[100];
 
 int network_init(void){
 	
-	char target_ip[100];
+	
 	sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	strcpy(target_ip, "127.0.0.1");
 	

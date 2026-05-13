@@ -30,6 +30,12 @@ void change_pos(vec3_t angle, vec3_t speed){
     speed_rate = speed;
 }
 
+static vec3_t gen_noise(float noise_level){
+  return (vec3_t){(((float)rand() / (float)RAND_MAX) -0.5f )*noise_level,
+        (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level,
+        (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level};
+}
+
 vec3_t gen_acc(float dt){
 
     angles = vec3_add(angles, vec3_mul_const(speed_rate, dt));
@@ -43,10 +49,7 @@ vec3_t gen_acc(float dt){
     acc.y = sinf(roll)*cosf(pitch);
     acc.z = cosf(roll)*cosf(pitch);
 
-    vec3_t noise;
-    noise.x = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-    noise.y = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-    noise.z = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
+    vec3_t noise = gen_noise(noise_level);
     
     return vec3_add(acc, noise);
 }
@@ -54,11 +57,24 @@ vec3_t gen_acc(float dt){
 
 vec3_t gen_gyro(void){
 
-    vec3_t noise;
-    noise.x = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-    noise.y = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-    noise.z = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-    
+    vec3_t noise = gen_noise(noise_level);
     return vec3_add(gyro, noise);
 }
 
+void gen_set_angle(vec3_t a){
+    angles = a;
+}
+
+void gen_imu(vec3_t * acc, vec3_t * gyro, vec3_t speed, float dt){
+    angles = vec3_add(angles, vec3_mul_const(speed, dt));
+
+    float roll = angles.x*3.14f/180.0f;
+    float pitch = angles.y*3.14f/180.0f;
+
+    acc->x = -sinf(pitch);
+    acc->y = sinf(roll)*cosf(pitch);
+    acc->z = cosf(roll)*cosf(pitch);
+    
+    *acc = vec3_add(*acc, gen_noise(noise_level));
+    *gyro = vec3_add(*gyro, gen_noise(noise_level));
+}

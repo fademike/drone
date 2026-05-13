@@ -271,6 +271,7 @@ void MahonyAHRSupdateIMU(float gx, float gy, float gz, float ax, float ay, float
 // See: http://en.wikipedia.org/wiki/Fast_inverse_square_root
 
 float invSqrt(float x) {
+  if (x ==0) return 1; // FIXME
 	float halfx = 0.5f * x;
 	float y = x;
 	long i = *(long*)&y;
