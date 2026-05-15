@@ -20,20 +20,20 @@ vec3_t injected_bias = {0,0,0};
 float noise_level = 0.0f;
 float move = 0.1f;
 
+static vec3_t gen_noise(void){
+  return (vec3_t){(((float)rand() / (float)RAND_MAX) -0.5f )*noise_level,
+        (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level,
+        (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level};
+}
+
 void test_calibration_bias_with_noise(void) {
 
     injected_bias = (vec3_t){1,0,0};
 
 
     for (int i = 0; i < CALIB_DURATION_CNT; i++) {
-        vec3_t noise;
+        vec3_t noise = gen_noise();
         // Добавляем шум
-        noise.x = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-        noise.y = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-        noise.z = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-        //noise.y = (float)(rand() % 100) / (100.0f/noise_level);
-        //noise.z = (float)(rand() % 100) / (100.0f/noise_level);
-
         acc_calibration_update(vec3_add(injected_bias, noise), false);
     }
     
@@ -59,12 +59,8 @@ void test_calibration_bias_with_noise(void) {
 void test_calibration(vec3_t set, vec3_t expect, float noise_lvl) {
 
     for (int i = 0; i < CALIB_DURATION_CNT; i++) {
-        vec3_t noise;
+        vec3_t noise = gen_noise();
         // Добавляем шум
-        noise.x = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-        noise.y = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-        noise.z = (((float)rand() / (float)RAND_MAX) -0.5f )*noise_level;
-
         acc_calibration_update(vec3_add(set, noise), false);
     }
     

@@ -164,7 +164,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 
 
     ${CMAKE_SOURCE_DIR}/Drivers/imu/vector_math.c
-    ${CMAKE_SOURCE_DIR}/tests/host/imu_data_generate.c
+    
+                ${CMAKE_SOURCE_DIR}/tests/host/imu_data_generate.c
 
 )
 
@@ -180,11 +181,14 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
 )
 
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE m)
+
 set(TEST_SRC 
                 ${CMAKE_SOURCE_DIR}/tests/unity/unity.c
                 ${CMAKE_SOURCE_DIR}/Drivers/imu/vector_math.c
                 ${CMAKE_SOURCE_DIR}/Core//App/system.c
-                ${CMAKE_SOURCE_DIR}/tests/host/log.c)
+                ${CMAKE_SOURCE_DIR}/tests/host/log.c
+                ${CMAKE_SOURCE_DIR}/tests/host/imu_data_generate.c)
 
 set(TEST_INC
     ${CMAKE_SOURCE_DIR}/Drivers/imu
@@ -236,10 +240,18 @@ target_compile_definitions(test_acc_calibrate PRIVATE
     TEST
 )
 
+# link_directories(/system/lib64 /system/lib)
+# target_link_libraries(test_rearrange PRIVATE m)
+
+# target_link_libraries(test_rearrange PRIVATE /system/lib64/libm.so)
+
+# target_link_libraries(test_rearrange PRIVATE c)
+
 add_executable( test_rearrange
 
                 ${CMAKE_SOURCE_DIR}/tests/test_rearrange.c
                 ${CMAKE_SOURCE_DIR}/Drivers/imu/imu_rearrange.c
+                ${CMAKE_SOURCE_DIR}/tests/host/imu_data_generate.c
                 ${TEST_SRC}
               )
 
@@ -256,6 +268,12 @@ target_compile_definitions(test_rearrange PRIVATE
     UNIT_TEST
     TEST
 )
+
+# set_target_properties(test_rearrange PROPERTIES 
+#    LINK_FLAGS "-lm"
+#)
+
+target_link_libraries(test_rearrange PRIVATE m)
 
 # // # Пример Makefile для тестов
 # // test: test_gyro_calibration
@@ -280,6 +298,6 @@ target_compile_definitions(test_rearrange PRIVATE
 # add_library( ${CMAKE_PROJECT_NAME} 
 #     libm
 # )
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE m)
+# target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE m)
 
 endif ()  # CMAKE_CROSSCOMPILING

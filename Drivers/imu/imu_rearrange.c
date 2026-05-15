@@ -68,7 +68,12 @@ int get_abs_big_ptr(float * d, int cnt){
 int crr = 0;
 int crr_state =0;
 int crr_timeout=0;
-int calc_rearrange(vec3_t acc, vec3_t gyro, int stop){
+
+int imu_calc_rr_get_state(void){
+  return crr_state;
+}
+
+int imu_calc_rearrange(vec3_t acc, vec3_t gyro, int stop){
   static vec3_u sum_a={0,0,0};
   static vec3_u sum_g={0,0,0};
   static vec3_u a_bias={0,0,0};

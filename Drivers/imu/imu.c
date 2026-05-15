@@ -171,7 +171,11 @@ void imu_loop(void){
 	
 	uint64_t c_time_us = system_getTime_us();
 	if (l_time_us  == 0 ) {l_time_us = c_time_us; return;} //first cycle. when haven't l_time.
+  float dt = (c_time_us - l_time_us);
+	float ki = params_GetParamValue(PARAM_P_KI);
+	float kp;
 
+	l_time_us = c_time_us;
 
 #ifdef CMAKE_CROSSCOMPILING
 	if (status == 0) if (MPU_GetDataFloat(EstA.value, EstG.value, &t) != HAL_OK ) {imu_init(); return;}
@@ -192,45 +196,53 @@ void imu_loop(void){
 // vec3_t gen_gyro(void);
 
 	if (gen_cnt == 0){
-		gen_set_acc((vec3_t){0,0,1});
-		gen_set_gyro((vec3_t){0,0,0});
-		gen_set_noise_lvl(0.1f);
+	  gen_set_angle((vec3_t){0,0,0});
+		//gen_set_acc((vec3_t){0,0,1});
+		//gen_set_gyro((vec3_t){0,0,0});
+		gen_set_noise_lvl(0.001f);
 	}
 	static int triger = 0;
 	if (triger == 0){
 		gen_cnt++;
-		if(gen_cnt > 10*500) triger = 1;
-		change_pos((vec3_t){0,0,1}, (vec3_t){1,1,1});
-		vec3_t a = gen_acc((c_time_us - l_time_us)/1000000.0f);
-		vec3_t g = gen_gyro();
-
+		if(gen_cnt > 2*500) triger = 1;
+		//change_pos((vec3_t){0,0,1}, (vec3_t){1,1,1});
+		vec3_t a; //= gen_acc((c_time_us - l_time_us)/1000000.0f);
+		vec3_t g; //= gen_gyro();
+		gen_imu(&a, &g, (vec3_t){1,1,1}, (float)dt*1e-6f);
+/*
 		EstA.axis.x = a.x;
 		EstA.axis.y = a.y;
 		EstA.axis.z = a.z;
-
 		EstG.axis.x = g.x;
 		EstG.axis.y = g.y;
 		EstG.axis.z = g.z;
+*/
+    EstA = *(vector *)&a;
+    EstG = *(vector *)&g;
 
+    //EstG = (vector){1,1,1};
+
+    //EstG.axis.z = 1;
 		
-		// printf("imu up: %f, %f, %f; %f, %f, %f\n\r", a.x, a.y, a.z, g.x, g.y, g.z);
+	//	printf("imu up: %f, %f, %f; %f, %f, %f\n\r", a.x, a.y, a.z, g.x, g.y, g.z);
 	}
 	else if (triger == 1){
 		gen_cnt--;
 		if(gen_cnt <= 1) triger = 0;
-		change_pos((vec3_t){0,0,1}, (vec3_t){-1,-1,-1});
-		vec3_t a = gen_acc((c_time_us - l_time_us)/1000000.0f);
-		vec3_t g = gen_gyro();
-
-		EstA.axis.x = a.x;
-		EstA.axis.y = a.y;
-		EstA.axis.z = a.z;
-
-		EstG.axis.x = g.x;
-		EstG.axis.y = g.y;
-		EstG.axis.z = g.z;
+		//change_pos((vec3_t){0,0,1}, (vec3_t){-1,-1,-1});
+		//vec3_t a = gen_acc((c_time_us - l_time_us)/1000000.0f);
+		//vec3_t g = gen_gyro();
+		vec3_t a;
+		vec3_t g;
+		gen_imu(&a, &g, (vec3_t){-1,-1,-1}, (float)dt*1e-6f);
 		
-		// printf("imu dw: %f, %f, %f; %f, %f, %f\n\r", a.x, a.y, a.z, g.x, g.y, g.z);
+		EstA = *(vector *)&a;
+    EstG = *(vector *)&g;
+    
+    //EstG = (vector){-1,-1,-1};
+    //EstG.axis.z = -1;
+		
+	//	printf("imu dw: %f, %f, %f; %f, %f, %f\n\r", a.x, a.y, a.z, g.x, g.y, g.z);
 	}
 
 
@@ -262,11 +274,7 @@ void imu_loop(void){
 	// 	params_GetParamValue(PARAM_FL_KP);
 	// }
 
-	float dt = (c_time_us - l_time_us);
-	float ki = params_GetParamValue(PARAM_P_KI);
-	float kp;
-
-	l_time_us = c_time_us;
+	
 	if (MotorControl_getState() != MOTOR_STATUS_LAUNCHED) kp = params_GetParamValue(PARAM_P_KP);
 	else kp = params_GetParamValue(PARAM_P_KP_ARM);
 
@@ -294,7 +302,8 @@ void imu_loop(void){
 // if (d++ >=0){
 // 	d=0;
 // 	Printf("x %d, y %d, z %d, t %d\n\r", (int)imuAngle.angle.pitch, (int)imuAngle.angle.roll, (int)imuAngle.angle.yaw, (int)(c_time_us));
-// }
+ 	Printf("x %f, y %f, z %f, t %d\n\r", imuAngle.angle.pitch, imuAngle.angle.roll, imuAngle.angle.yaw, (int)(dt));
+ //}
 
 	MotorControl_loop();
 }
